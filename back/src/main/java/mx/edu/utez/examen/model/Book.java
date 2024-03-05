@@ -1,9 +1,11 @@
 package mx.edu.utez.examen.model;
 
+import jakarta.annotation.Nullable;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
 
@@ -17,15 +19,16 @@ public class Book {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private long id;
 
-    @Column
+    @Column(nullable = false)
     private String name;
 
-    @Column
+    @Column(nullable = false)
     private String author;
 
-    @Column
+    @Column(columnDefinition = "DATE NOT NULL")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     private Date publication;
 
-    @Column
+    @Column(nullable = true)
     private String img;
 }
