@@ -1,4 +1,4 @@
-<template>
+  <template>
   <div>
     <div class="d-flex justify-content-center container">
       <div class="carousel-container">
@@ -10,11 +10,16 @@
     </div>
     <b-card class="container bg-transparent p-2 shadow">
       <template #header>
-        <h4 class="text-left">Objetos</h4>
+        <h4 class="text-center">Catálogos más vendidos</h4>
       </template>
       <div>
         <b-row>
-        <b-col cols="12" class="d-flex justify-content-end align-items-center mb-3 w-100">
+        <b-col cols="12" class="d-flex justify-content-between align-items-center mb-3 w-100">
+          <b-dropdown variant="outline-primary" id="dropdown-1" text="Ordenamientos " class="m-md-2">
+            <b-dropdown-item @click="() => sorting('author')">Autor</b-dropdown-item>
+            <b-dropdown-item @click="() => sorting('publication')">Fechas</b-dropdown-item>
+            <b-dropdown-item>Imagenes</b-dropdown-item>
+          </b-dropdown>
           <b-button
             variant="outline-primary"
             class="d-flex align-items-center"
@@ -28,16 +33,14 @@
       <b-row>
         <b-col cols="12" lg="9">
             <b-row>
-              <b-col cols="12" lg="4" v-for="(obj, index) in objects" :key="index">
-                <b-card draggable @dragstart="drag($event, obj, index)" title="Card Title" img-src="https://picsum.photos/1024/400/?image=25" img-alt="Image" img-top class="mb-4 p-2 shadow-lg">
+              <b-col cols="12" lg="4" v-for="(book, index) in books" :key="index">
+                <b-card  draggable @dragstart="drag($event, book)" :title="book.name" img-src="https://picsum.photos/1024/400/?image=25" img-alt="Image" img-top class="mb-4 p-2 shadow-lg hover card-style">
                     <b-card-text>
-                      {{obj.description}}
+                      <p><b>Autor: </b>{{book.author}}</p>
                     </b-card-text>
-                    <template #footer>
-                      <div class="d-flex justify-content-center p-1 align-items-center">
-                        <b-button variant="outline-primary" class="mr-2 button-style"><b-icon icon="pencil"></b-icon></b-button>
-                      </div>
-                    </template>
+                    <b-card-text>
+                      <p><b>Publicacion: </b>{{new Date(book.publication).toLocaleDateString()["split"]("T")[0]}}</p>
+                    </b-card-text>
                 </b-card>
               </b-col>
             </b-row>
@@ -49,27 +52,36 @@
             @dragenter.prevent
             @drop="onDrop($event)"
           >
-            <label class="text-secondary">¡Suelta aquí para eliminar!</label>
+            <b-icon icon="trash" flip-h class="text-secondary" scale="3"></b-icon>
           </div>
           <div 
             class="actions"
             @dragover.prevent
             @dragenter.prevent
-            @drop="onDrop($event)"
+            @drop="onDropToUpdate($event)"
           >
-            <label class="text-secondary">¡Suelta aquí para editar!</label>
+            <b-icon icon="pencil" class="text-secondary" scale="3"></b-icon>
           </div>
         </b-col>
       </b-row>
     </b-card>
-    <SaveExampleVue/>
+    <SaveExampleVue
+      @getBooks="getBooks"
+    />
+    <UpdateExampleVue
+      :updateBook="updateBook"
+      @getBooks="getBooks"
+    />
   </div>
 </template>
 <script>
 import SaveExampleVue from './SaveExample.vue';
+import services from "@/services/Book"
+import UpdateExampleVue from './UpdateExample.vue';
 export default {
   components:{
-    SaveExampleVue
+    SaveExampleVue,
+    UpdateExampleVue
   },
   data() {
     return {
@@ -91,39 +103,29 @@ export default {
           text: 'Este es el tercer slide',
         }
       ],
-      objects: [
-        {
-          id:1,
-          name: 'Objeto 1',
-          description: 'Descripcion del objeto 1'
-
-        },
-        {
-          id:2,
-          name: 'Objeto 2',
-          description: 'Descripcion del objeto 2'
-
-        },
-        {
-          id:3,
-          name: 'Objeto 3',
-          description: 'Descripcion del objeto 3'
-        }
-      ]
+      books: [],
+      updateBook: {}
     };
   },
   methods:{
     showSaveModal(){
             this.$bvModal.show("modal-save-object");
     },
+    showUpdateModal(data){
+            this.$bvModal.show("modal-update-object");
+            this.updateBook = data;
+
+    },
     drag(event, obj){
             event.dataTransfer.dropEffect = "move";
             event.dataTransfer.effectAllowed = "move";
             event.dataTransfer.setData("objId", obj.id);
+            event.dataTransfer.setData("objName", obj.name);
+            event.dataTransfer.setData("objAuthor", obj.author);
+            event.dataTransfer.setData("objPublication", obj.publication);
     },
-    
-    onDrop(evt) {
-            const itemID = evt.dataTransfer.getData("objId")
+    onDrop(event) {
+            const itemID = event.dataTransfer.getData("objId")
             this.$swal.fire({
                 title: '¿Eliminar objeto permanentemente?',
                 text: "Si lo eliminas no podrás recuperarla",
@@ -135,17 +137,47 @@ export default {
                 cancelButtonText: 'Cancelar'
             }).then(async (result)=>{
                  if(result.isConfirmed){
-                   this.$swal.fire({
+                   const response = await services.deleteBook(itemID)
+                    if(response.data){
+                      this.$swal.fire({
                      title: "¡Eliminación exitosa!",
                      icon: "success",
                      showCancelButton: false,
                      showConfirmButton: false,
                      timer: 3000
-                   })
+                    }).then(() =>{
+                      this.getBooks()
+                    })
+                  }
                 } 
             })
-        }
-  }
+    },
+    onDropToUpdate(evt) {
+            this.updateBook = {
+              id: evt.dataTransfer.getData("objId"),
+              name: evt.dataTransfer.getData("objName"),
+              author: evt.dataTransfer.getData("objAuthor"),
+              publication: evt.dataTransfer.getData("objPublication")
+            }
+            this.$bvModal.show("modal-update-object");
+            
+    },
+    async getBooks(){
+      try {
+        const response = await services.getBook()
+        this.books = response;
+      } catch (error) {
+        console.error("",error);
+      }
+    },
+    async sorting(type){
+      const response = await services.getBook({sort: type})
+      this.books = response;
+    }
+  },
+  mounted(){
+      this.getBooks()
+    }
 };
 </script>
 
@@ -169,5 +201,18 @@ export default {
   height: 40px; 
   width: 70px;
    margin-right: 10px;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.card-style{
+    animation: fadeIn 0.5s ease-in-out;
+    height: 240px;
 }
 </style>
